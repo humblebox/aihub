@@ -10,4 +10,4 @@
 - [Windows 与安卓接入](enrollment/跨平台接入.md)
 - [云端 Clash 管理](clash/README.md)
 
-`drafts/` 为未启用的旧方案，请勿直接部署。`open_harness.py` 是此前 SSH 隧道与启动令牌方案的辅助脚本，不是当前统一网页登录的首选入口。
+历史 SSH 隧道草稿和含设备配置的辅助脚本不随源码分发。登录请使用当前部署的统一网页入口。
