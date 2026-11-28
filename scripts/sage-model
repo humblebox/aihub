@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# 当前电脑连接 SAGE 模型的快捷命令，仅在本机回环地址监听。
+set -euo pipefail
+model_port="${SAGE_MODEL_PORT:-18080}"
+[[ "$model_port" =~ ^[0-9]+$ ]] && ((model_port > 1024 && model_port < 65536)) || { echo '端口不正确。'; exit 1; }
+state_dir="$HOME/.local/state/sage-model"
+mkdir -p "$state_dir"
+chmod 700 "$state_dir"
+socket="$state_dir/ssh-$model_port.sock"
+target=${SAGE_MODEL_TARGET:-}
+target_file="${XDG_CONFIG_HOME:-$HOME/.config}/aihub/sage-model-target"
+if [[ -z "$target" && -r "$target_file" ]]; then target=$(<"$target_file"); fi
+[[ "$target" =~ ^([a-zA-Z0-9_.][a-zA-Z0-9_.-]*@)?[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || {
+  echo '请通过 SAGE_MODEL_TARGET 或本机配置文件指定 SSH 别名或 user@host。' >&2; exit 2;
+}
+key="$HOME/.ssh/sage_model"
+running() { ssh -S "$socket" -O check "$target" >/dev/null 2>&1; }
+occupied() { ss -lntH "sport = :$model_port" | grep -q .; }
+case "${1:-start}" in
+  start)
+    if running; then
+      echo '模型隧道已连接。'
+    elif occupied; then
+      echo "端口 $model_port 已被其他连接使用；当前已有手动隧道时可直接继续使用。"
+      echo '如需改用此命令管理，请先在原 SSH 终端按 Ctrl+C，再执行 sage-model。'
+      exit 1
+    else
+      [[ -f "$key" ]] || { echo '缺少专用 SSH 密钥，请先配置授权。'; exit 1; }
+      ssh -fN -T -M -S "$socket" -o ControlPersist=no \
+        -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+        -o ExitOnForwardFailure=yes -o ConnectTimeout=15 \
+        -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+        -i "$key" -L "127.0.0.1:$model_port:127.0.0.1:8080" "$target"
+      echo '模型隧道已在后台连接，关闭终端后仍可使用。'
+    fi
+    echo "Base URL：http://127.0.0.1:$model_port/v1"
+    ;;
+  status)
+    if running; then echo '快捷命令管理的模型隧道正在运行。'
+    elif occupied; then echo "端口 $model_port 已被其他程序或手动 SSH 隧道使用。"
+    else echo '模型隧道未连接。'; exit 1; fi
+    ;;
+  stop)
+    if running; then ssh -S "$socket" -O exit "$target" >/dev/null 2>&1; echo '模型隧道已断开。'
+    else echo '没有由此命令管理的连接，不会停止其他 SSH 会话。'; fi
+    ;;
+  *) echo '用法：sage-model [start|status|stop]'; exit 2 ;;
+esac

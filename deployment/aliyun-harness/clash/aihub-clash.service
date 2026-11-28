@@ -1,0 +1,22 @@
+[Unit]
+Description=AIHub Mihomo 后台代理
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aihub-clash
+Group=aihub-clash
+WorkingDirectory=/var/lib/aihub-clash
+ExecStart=/usr/bin/verge-mihomo -d /var/lib/aihub-clash -f /var/lib/aihub-clash/config.yaml
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aihub-clash
+
+[Install]
+WantedBy=multi-user.target

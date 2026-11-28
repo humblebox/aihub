@@ -1,0 +1,11 @@
+[Unit]
+Description=每小时更新当前云端代理订阅
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+RandomizedDelaySec=3min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

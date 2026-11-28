@@ -1,0 +1,8 @@
+[Unit]
+Description=更新当前云端代理订阅
+After=network-online.target aihub-clash.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/aihub/clash/update.py
+UMask=0077

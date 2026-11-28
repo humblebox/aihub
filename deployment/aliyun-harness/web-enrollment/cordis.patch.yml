@@ -1,0 +1,4 @@
+# 网页设备接入入口使用 Harness 原有登录认证。
+- insert:
+    - id: aihub-device-enrollment
+      name: aihub-device-enrollment

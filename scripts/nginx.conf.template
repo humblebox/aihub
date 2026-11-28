@@ -1,0 +1,87 @@
+server {
+ listen 443 ssl;
+ server_name AIHUB_HOST_PLACEHOLDER;
+ ssl_certificate /etc/aihub/tls/server.crt;
+ ssl_certificate_key /etc/aihub/tls/server.key;
+ ssl_protocols TLSv1.2 TLSv1.3;
+ client_max_body_size 300m;
+ auth_request /_aihub_login_check;
+ error_page 401 = @aihub_login_redirect;
+ location @aihub_login_redirect { return 302 /login; }
+ location = /_aihub_login_check {
+  internal;
+  auth_request off;
+  proxy_pass http://127.0.0.1:3081/check;
+  proxy_pass_request_body off;
+  proxy_set_header Content-Length "";
+  proxy_set_header Cookie $http_cookie;
+ }
+ location = /login {
+  auth_request off;
+  client_max_body_size 4k;
+  proxy_pass http://127.0.0.1:3081/login;
+  proxy_set_header Origin $http_origin;
+  proxy_set_header X-Real-IP $remote_addr;
+ }
+ # 接入链接自行校验限时随机凭据，避免目标设备再登录网页；不记录凭据 URL。
+ location ^~ /join/ {
+  auth_request off;
+  access_log off;
+  proxy_pass http://127.0.0.1:3081;
+ }
+ location = /account/password {
+  client_max_body_size 4k;
+  proxy_pass http://127.0.0.1:3081/account/password;
+  proxy_set_header Origin $http_origin;
+  proxy_set_header X-Real-IP $remote_addr;
+ }
+ location = /logout {
+  auth_request off;
+  proxy_pass http://127.0.0.1:3081/logout;
+  proxy_set_header Origin $http_origin;
+ }
+
+
+ # 完整代理面板与控制接口均沿用 AI 网页会话。
+ location = /_aihub_clash_auth {
+  internal;
+  auth_request /_aihub_login_check;
+  proxy_pass http://127.0.0.1:3080/api/aihub-clash/auth;
+  proxy_pass_request_body off;
+  proxy_set_header Content-Length "";
+  proxy_set_header Host $http_host;
+  proxy_set_header Origin $http_origin;
+  proxy_set_header Cookie $http_cookie;
+ }
+ location = /clash/dashboard { return 302 /clash/dashboard/; }
+ location /clash/dashboard/ {
+  auth_request /_aihub_clash_auth;
+  alias /opt/aihub/zashboard/;
+  index index.html;
+  add_header Cache-Control "no-store" always;
+ }
+ location /clash/controller/ {
+  auth_request /_aihub_clash_auth;
+  proxy_pass http://127.0.0.1:9090/;
+  proxy_http_version 1.1;
+  include /etc/nginx/aihub-clash-secret.conf;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_read_timeout 3600;
+  proxy_buffering off;
+  add_header Cache-Control "no-store" always;
+ }
+
+ location / {
+  proxy_pass http://127.0.0.1:3080;
+  proxy_http_version 1.1;
+  proxy_set_header Host $http_host;
+  proxy_set_header Origin $http_origin;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_read_timeout 3600;
+  proxy_buffering off;
+  proxy_cookie_path / "/; Secure";
+  proxy_intercept_errors on;
+ }
+}

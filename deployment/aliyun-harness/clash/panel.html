@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>订阅配置与服务开关</title>
+<style>
+*{box-sizing:border-box}body{margin:32px auto;padding:0 18px 40px;max-width:900px;font:15px/1.65 system-ui;background:#f5f6fa;color:#282d40}h1{font-size:25px}h2{font-size:18px;margin:0 0 10px}a{color:#6250ce}nav{display:flex;gap:22px;flex-wrap:wrap}.card{background:white;border:1px solid #e4e6ed;border-radius:14px;padding:22px;margin:18px 0}.row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.muted{color:#73788a;font-size:13px}button,input{font:inherit;padding:10px 13px;border:1px solid #dbdee8;border-radius:8px}button{cursor:pointer;background:#eeeafa;color:#5746bd}button:disabled{opacity:.5;cursor:default}input{width:100%;background:#fafaff;color:inherit}label{display:block;margin:14px 0 6px;font-weight:600}.actions{display:flex;gap:8px;flex-wrap:wrap}.primary{background:#6652cc;color:white;border-color:#6652cc}#message{white-space:pre-wrap;overflow-wrap:anywhere;position:sticky;top:10px;padding:12px;border-radius:8px;background:#eeeafa;color:#47388f;z-index:2}#message[hidden]{display:none}.profile-url{margin:12px 0}.profile-title{overflow-wrap:anywhere}@media(prefers-color-scheme:dark){body{background:#191a23;color:#e5e7ef}.card{background:#252631;border-color:#383b48}input{background:#1d1e28;border-color:#484b5d}a{color:#b5a6ff}.muted{color:#adb2c5}}
+</style>
+<nav><a id="dashboard" href="/clash/dashboard/">进入完整代理面板（Zashboard）→</a><a href="/">返回 AI 网页</a></nav>
+<h1>订阅配置与服务开关</h1>
+<p class="muted">节点选择、策略组、测速、规则和连接管理均使用现成的 Zashboard 面板。本页只管理订阅文件和后台服务。</p>
+<p id="message" role="status" aria-live="polite" hidden></p>
+<section class="card"><div class="row"><div><h2>云服务器代理服务</h2><span id="status">正在读取…</span></div><div class="actions"><button id="power" disabled>读取中</button><button id="reload">刷新状态</button></div></div><p class="muted">关闭服务同时取消开机启动；开启时恢复。只影响云服务器，不改变当前电脑或手机的代理设置。</p></section>
+<section class="card"><h2>添加订阅配置</h2><form id="subscribe"><label for="name">配置名称</label><input id="name" maxlength="80" placeholder="例如：日常线路、备用线路"><label for="url">订阅链接（明文显示）</label><input id="url" type="url" required autocomplete="off" spellcheck="false" placeholder="https://…"><p class="muted">导入成功后保存并启用；相同链接更新已有记录。保留订阅的节点、策略组和规则，服务器监听设置保持固定。</p><button class="primary" type="submit">导入并启用</button></form></section>
+<div id="profiles"></div>
+<p class="muted">切换配置使用已保存的内容，无需重新下载。每小时自动更新当前配置，失败时保留旧内容。配置切换和更新可能短暂重启核心。</p>
+<script>
+// 本页不轮询或重建交互中的控件；代理操作由现成面板负责。
+document.querySelector('#dashboard').href='/clash/dashboard/#/setup?'+new URLSearchParams({hostname:location.hostname,port:location.port||'443',protocol:location.protocol.slice(0,-1),secondaryPath:'/clash/controller',disableUpgradeCore:'1',disableTunMode:'1'});
+const $=selector=>document.querySelector(selector);let state=null,store={active:null,items:[]},pending=false;
+function message(text,error=false){$('#message').textContent=text;$('#message').hidden=false;$('#message').style.color=error?'#bd394b':''}
+async function call(action,data){const get=['status','profiles'].includes(action);const response=await fetch('/api/aihub-clash/'+action,{cache:'no-store',method:get?'GET':'POST',...(get?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})})});let result;try{result=await response.json()}catch{throw Error(response.status===401?'登录已失效，请返回 AI 网页登录。':'服务暂不可用，请稍后重试。')}if(!response.ok||result.error)throw Error(result.error||'请求失败');return result}
+function lock(){for(const button of document.querySelectorAll('button'))button.disabled=pending||button.dataset.blocked==='true';$('#power').disabled=pending||!state}
+function render(){ $('#status').textContent=state.running?'运行中':'已关闭';$('#power').textContent=state.running?'关闭服务':'开启服务';const list=$('#profiles');list.replaceChildren();for(const item of store.items){const card=document.createElement('section');card.className='card';const title=document.createElement('h2');title.className='profile-title';title.textContent=item.name+(item.id===store.active?' · 当前使用':'');const summary=document.createElement('p');summary.className='muted';summary.textContent=`${item.nodes} 个节点 · ${item.groups} 个策略组 · ${item.rules} 条规则 · 更新于 ${new Date(item.updated*1000).toLocaleString()}`;const link=document.createElement('input');link.className='profile-url';link.type='text';link.readOnly=true;link.value=item.url;link.setAttribute('aria-label',item.name+' 的订阅链接');const actions=document.createElement('div');actions.className='actions';for(const [label,action] of [['使用此配置','activate'],['更新','refresh'],['改名','rename'],['删除','delete']]){const button=document.createElement('button');button.textContent=label;if(['activate','delete'].includes(action)&&item.id===store.active)button.dataset.blocked='true';button.onclick=async()=>{const data={id:item.id};if(action==='rename'){const name=prompt('配置名称',item.name);if(!name?.trim())return;data.name=name.trim()}if(action==='delete'&&!confirm('删除「'+item.name+'」？'))return;await act(action,data)};actions.append(button)}card.append(title,summary,link,actions);list.append(card)}lock()}
+async function load(){state=await call('status');store=await call('profiles');render()}
+async function act(action,data){if(pending)return false;pending=true;lock();message(action==='subscribe'?'正在下载并校验订阅…':'正在处理…');let success=false;try{await call(action,data);success=true;await load();message('操作成功。代理操作请打开完整面板。')}catch(error){message(error.message,true)}finally{pending=false;lock()}return success}
+$('#power').onclick=()=>act(state.running?'stop':'start');$('#reload').onclick=async()=>{try{await load()}catch(error){message(error.message,true)}};
+$('#subscribe').onsubmit=async event=>{event.preventDefault();if(await act('subscribe',{name:$('#name').value.trim(),url:$('#url').value.trim()})){$('#name').value='';$('#url').value=''}};
+load().catch(error=>{message(error.message,true);$('#status').textContent='读取失败'});
+</script>
+</html>

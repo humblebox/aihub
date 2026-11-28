@@ -1,0 +1,14 @@
+[Unit]
+Description=AIHub 统一网页登录
+After=network.target aihub-harness.service
+[Service]
+ExecStart=/usr/bin/python3 /opt/aihub/login/server.py
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aihub-login
+[Install]
+WantedBy=multi-user.target

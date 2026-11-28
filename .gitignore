@@ -1,0 +1,29 @@
+# 本地缓存、运行数据和凭据
+__pycache__/
+*.py[cod]
+node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+*.bak
+*账号*.txt
+*登录地址*.txt
+*command.txt
+runtime/
+backups/
+# 当前部署的历史记录与设备专用配置，不作为可分发源码
+/deployment/aliyun-harness/drafts/
+/deployment/aliyun-harness/target-ssh.json
+/deployment/aliyun-harness/remote.patch.yml
+/deployment/aliyun-harness/model.patch.yml
+/deployment/aliyun-harness/open_harness.py
+/deployment/aliyun-harness/remote_task.py
+/deployment/aliyun-harness/add_device.py
+/登录与密码使用说明.md
+
+/docs/当前生产部署记录.md

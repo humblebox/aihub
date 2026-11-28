@@ -1,0 +1,24 @@
+[Unit]
+Description=AIHub DeepSeek Harness 网页服务
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aihub
+Group=aihub
+WorkingDirectory=/var/lib/aihub/workspace
+Environment=HOME=/var/lib/aihub
+Environment=DSH_HOME=/var/lib/aihub/.dsh
+Environment=PATH=/opt/aihub/node-v24.22.2-linux-x64/bin:/usr/local/bin:/usr/bin:/bin
+Environment="NODE_OPTIONS=--max-old-space-size=768 --require=/opt/aihub/web-enrollment/browser-open.cjs"
+ExecStart=/opt/aihub/node-v24.22.2-linux-x64/bin/node /opt/aihub/node-v24.22.2-linux-x64/lib/node_modules/@deepseek-ai/dsh/lib/bin.js --profile web --no-open --host 127.0.0.1 --port 3080
+ExecStartPost=+/usr/bin/python3 /opt/aihub/login/harness_auth.py --capture
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

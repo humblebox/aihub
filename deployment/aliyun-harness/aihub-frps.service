@@ -1,0 +1,20 @@
+[Unit]
+Description=AIHub FRP 服务端
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aihub
+Group=aihub
+ExecStart=/opt/aihub/frp/frps -c /etc/aihub/frps.toml
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
